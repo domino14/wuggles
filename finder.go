@@ -1,36 +1,159 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/domino14/macondo/gaddag"
 )
 
-var answerSet map[string]bool
+var answerSet map[string]int
 
 // wuggler finds all the words in a square board passed in. The length
-// of the board string must be a perfect square.
-func wuggler(g gaddag.SimpleGaddag, board string) {
-	fmt.Println(board)
-	if len(board) != 16 {
-		fmt.Println("Only 16-letter boards are supported.")
-		return
-	}
-	boardDim := uint8(4)
-	answerSet = make(map[string]bool)
-	for idx, _ := range board {
-		newBoard := removeLetter(uint8(idx), board)
-		findWords(g, uint8(idx), newBoard, string(board[idx]), boardDim)
+// of the board string must be a perfect square (it is converted if not,
+// depending on the round)
+func wuggler(dawg *gaddag.SimpleDawg, board []rune, round int) {
+	printBoard(board, round)
+	boardDim := roundToDim(round)
+	answerSet = make(map[string]int)
+	for idx := range board {
+		if board[idx] == ' ' {
+			continue
+		}
+		newBoard := removeLetter(idx, board)
+		multiplier := boardBonus(idx, round)
+		findWords(dawg, idx, newBoard, []rune{board[idx]},
+			boardDim, multiplier, round)
 	}
 	fmt.Println(answerSet)
 	fmt.Println(len(answerSet), "answers")
 }
 
-func findWords(g gaddag.SimpleGaddag, idx uint8, board string,
-	possibleWord string, boardDim uint8) {
-	// possibleWord is actually a prefix, perfect for GADDAG. Check
-	// if this prefix is in the GADDAG. If it's not, it's time to prune
+// Convert the string into a board shape depending on the round
+func convertBoard(board string, round int) ([]rune, error) {
+	switch round {
+	case 1:
+		if len(board) != 16 {
+			return nil, errors.New("need 16 letters for round 1")
+		}
+		return []rune(board), nil
+	case 2:
+		if len(board) != 24 {
+			return nil, errors.New("need 24 letters for round 2")
+		}
+		strIdx := 0
+		newStr := ""
+		for y := 0; y < 6; y++ {
+			for x := 0; x < 6; x++ {
+				if x == 0 || x == 5 {
+					if y < 2 || y > 3 {
+						newStr += " "
+						continue
+					}
+				}
+				if x == 1 || x == 4 {
+					if y < 1 || y > 4 {
+						newStr += " "
+						continue
+					}
+				}
+				newStr += string(board[strIdx])
+				strIdx++
+			}
+		}
+		return []rune(newStr), nil
+	case 3:
+		if len(board) != 28 {
+			return nil, errors.New("need 28 letters for round 3")
+		}
+		strIdx := 0
+		newStr := ""
+		for y := 0; y < 6; y++ {
+			for x := 0; x < 6; x++ {
+				if x == 0 || x == 1 {
+					if y > 3 {
+						newStr += " "
+						continue
+					}
+				}
+				if x == 4 || x == 5 {
+					if y < 2 {
+						newStr += " "
+						continue
+					}
+				}
+				newStr += string(board[strIdx])
+				strIdx++
+			}
+		}
+		return []rune(newStr), nil
+
+	case 4:
+		if len(board) != 32 {
+			return nil, errors.New("need 32 letters for round 4")
+		}
+		strIdx := 0
+		newStr := ""
+		for y := 0; y < 6; y++ {
+			for x := 0; x < 6; x++ {
+				if x == 2 || x == 3 {
+					if y == 2 || y == 3 {
+						newStr += " "
+						continue
+					}
+				}
+				newStr += string(board[strIdx])
+				strIdx++
+			}
+		}
+		return []rune(newStr), nil
+	}
+	return nil, errors.New("round not found")
+}
+
+func roundToDim(round int) int {
+	var dim int
+	if round == 1 {
+		dim = 4
+	} else {
+		dim = 6
+	}
+	return dim
+}
+
+func printBoard(board []rune, round int) {
+	var Reset = "\033[0m"
+	var Red = "\u001b[31m"
+	var Blue = "\u001b[34m"
+	dim := roundToDim(round)
+	fmt.Println("-------------")
+	for y := 0; y < dim; y++ {
+		for x := 0; x < dim; x++ {
+			color := ""
+			reset := ""
+			idx := xyToIndex(x, y, dim)
+			bonus := boardBonus(idx, round)
+			if bonus == 2 {
+				color = Blue
+				reset = Reset
+			} else if bonus == 3 {
+				color = Red
+				reset = Reset
+			}
+			fmt.Printf("%v%v%v", color, string(board[idx]), reset)
+			fmt.Printf(" ")
+		}
+		fmt.Printf("\n")
+	}
+	fmt.Println("-------------")
+}
+
+func findWords(dawg *gaddag.SimpleDawg, idx int, board []rune,
+	possibleWord []rune, boardDim int, multiplier int, round int) {
+	// possibleWord is actually a prefix, perfect for dawg. Check
+	// if this prefix is in the dawg. If it's not, it's time to prune
 	// this branch.
-	if !gaddag.FindPrefix(g, possibleWord) {
+	if !gaddag.FindPrefix(dawg, string(possibleWord)) {
 		return
 	}
 	allowable := allowableIndices(idx, boardDim)
@@ -38,42 +161,35 @@ func findWords(g gaddag.SimpleGaddag, idx uint8, board string,
 		if board[newIdx] == ' ' {
 			continue
 		}
-		newBoard := removeLetter(uint8(newIdx), board)
-		findWords(g, newIdx, newBoard, possibleWord+string(board[newIdx]),
-			boardDim)
+		newBoard := removeLetter(newIdx, board)
+		newMultiplier := boardBonus(newIdx, round)
+		findWords(dawg, newIdx, newBoard, append(possibleWord, board[newIdx]),
+			boardDim, multiplier*newMultiplier, round)
 	}
-	if gaddag.FindWord(g, possibleWord) {
-		addPlay(possibleWord)
+	if gaddag.FindWord(dawg, string(possibleWord)) {
+		addPlay(possibleWord, multiplier)
 	}
 }
 
 // removeLetter removes the letter at idx from board.
-func removeLetter(idx uint8, board string) string {
-	// var boardCopy string
-	// if idx == 0 {
-	// 	boardCopy = string(' ') + board[idx+1:]
-	// } else {
-	// 	boardCopy = board[0:idx] + string(' ') + board[idx+1:]
-	// }
-	// return boardCopy
-	var newBoard string
-	newBoard = ""
+func removeLetter(idx int, board []rune) []rune {
+	var newBoard = make([]rune, len(board))
 	for i, letter := range board {
-		if uint8(i) != idx {
-			newBoard += string(letter)
+		if i != idx {
+			newBoard[i] = letter
 		} else {
-			newBoard += string(' ')
+			newBoard[i] = ' '
 		}
 	}
-	return newBoard
+	return []rune(newBoard)
 }
 
 // allowableIndices finds what indices in the board are allowed to be
 // reached from idx
-func allowableIndices(idx uint8, boardDim uint8) []uint8 {
+func allowableIndices(idx int, boardDim int) []int {
 	y := idx / boardDim
 	x := idx % boardDim
-	var indices []uint8
+	var indices []int
 	// There are eight directions
 	// up down left right
 	if x+1 < boardDim {
@@ -104,10 +220,19 @@ func allowableIndices(idx uint8, boardDim uint8) []uint8 {
 	return indices
 }
 
-func xyToIndex(x uint8, y uint8, boardDim uint8) uint8 {
+func xyToIndex(x int, y int, boardDim int) int {
 	return y*boardDim + x
 }
 
-func addPlay(word string) {
-	answerSet[word] = true
+func indexToXY(idx int, boardDim int) (int, int) {
+	return idx % boardDim, idx / boardDim
+}
+
+func addPlay(word []rune, multiplier int) {
+	newScore := score(word, multiplier)
+
+	if oldScore, ok := answerSet[string(word)]; !ok || newScore > oldScore {
+		answerSet[string(word)] = newScore
+	}
+
 }
