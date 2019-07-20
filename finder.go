@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/domino14/macondo/gaddag"
 )
@@ -140,12 +141,23 @@ func printBoard(board []rune, round int) {
 				color = Red
 				reset = Reset
 			}
-			fmt.Printf("%v%v%v", color, string(board[idx]), reset)
-			fmt.Printf(" ")
+			letter := string(board[idx])
+			afterSpace := " "
+			if letter == "Q" {
+				letter = "Qu"
+				afterSpace = ""
+			}
+			fmt.Printf("%v%v%v%v", color, letter, reset, afterSpace)
 		}
 		fmt.Printf("\n")
 	}
 	fmt.Println("-------------")
+}
+
+func stringToFind(possibleWord []rune) string {
+	// Replace Q with QU everywhere.
+	newStr := strings.Replace(string(possibleWord), "Q", "QU", -1)
+	return newStr
 }
 
 func findWords(dawg *gaddag.SimpleDawg, idx int, board []rune,
@@ -153,7 +165,7 @@ func findWords(dawg *gaddag.SimpleDawg, idx int, board []rune,
 	// possibleWord is actually a prefix, perfect for dawg. Check
 	// if this prefix is in the dawg. If it's not, it's time to prune
 	// this branch.
-	if !gaddag.FindPrefix(dawg, string(possibleWord)) {
+	if !gaddag.FindPrefix(dawg, stringToFind(possibleWord)) {
 		return
 	}
 	allowable := allowableIndices(idx, boardDim)
@@ -166,8 +178,8 @@ func findWords(dawg *gaddag.SimpleDawg, idx int, board []rune,
 		findWords(dawg, newIdx, newBoard, append(possibleWord, board[newIdx]),
 			boardDim, multiplier*newMultiplier, round)
 	}
-	if gaddag.FindWord(dawg, string(possibleWord)) {
-		addPlay(possibleWord, multiplier)
+	if gaddag.FindWord(dawg, stringToFind(possibleWord)) {
+		addPlay([]rune(stringToFind(possibleWord)), multiplier)
 	}
 }
 
