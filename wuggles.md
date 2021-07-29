@@ -58,3 +58,21 @@ round 4: after 10 seconds
 @ . . . . ^
 
 
+### Multiplayer
+
+- Should be 8 players max
+- Simple lobby
+- Golang server backend. **Build a library that we can also use for my future crossword app**. Ala Yahoo Games.
+- Websocket. Put some effort into a disconnect/reconnect flow.
+
+DB Tables:
+
+- Presence
+- "Table" model vs something else (game ID?)
+- Table model is more expandable but perhaps a bit antiquated. Multiple game IDs per table, every time you click Start.
+
+Table MVP:
+- game ID (changeable, like word list ID in Aerolith)
+- Host
+-
+
