@@ -31,6 +31,7 @@ func main() {
 		panic(err)
 	}
 	wuggler(dawg, runeBoard, rdNum)
+	printAnswers()
 }
 
 // LIASERTAIDKEMAIR 274 words using TWL14

@@ -60,7 +60,6 @@ func wuggler(dawg *gaddag.SimpleDawg, board []rune, round int) {
 		findWords(dawg, idx, newBoard, []rune{board[idx]},
 			boardDim, multiplier, round)
 	}
-	printAnswers()
 }
 
 // Convert the string into a board shape depending on the round
