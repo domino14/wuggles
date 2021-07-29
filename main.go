@@ -33,4 +33,4 @@ func main() {
 	wuggler(dawg, runeBoard, rdNum)
 }
 
-// LIASERTAIDKEMAIR 265 words
+// LIASERTAIDKEMAIR 274 words using TWL14

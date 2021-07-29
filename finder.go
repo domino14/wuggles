@@ -3,12 +3,46 @@ package main
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/domino14/macondo/gaddag"
 )
 
 var answerSet map[string]int
+
+func printAnswers() {
+
+	type Answer struct {
+		score int
+		word  string
+	}
+	printableAnswers := map[int][]Answer{}
+
+	for w, s := range answerSet {
+		l := len(w)
+		if _, ok := printableAnswers[l]; !ok {
+			printableAnswers[l] = []Answer{}
+		}
+		printableAnswers[l] = append(printableAnswers[l], Answer{score: s, word: w})
+	}
+
+	for i := 15; i >= 2; i-- {
+		if answers, ok := printableAnswers[i]; ok {
+			fmt.Printf("%d letters (%d answers)\n", i, len(answers))
+			fmt.Println("-------------------------")
+			sort.Slice(answers, func(i, j int) bool {
+				return answers[i].word < answers[j].word
+			})
+			for _, a := range answers {
+				fmt.Printf("%s (%d) ", a.word, a.score)
+			}
+			fmt.Println()
+			fmt.Println()
+		}
+	}
+	fmt.Printf("%d total answers\n", len(answerSet))
+}
 
 // wuggler finds all the words in a square board passed in. The length
 // of the board string must be a perfect square (it is converted if not,
@@ -26,8 +60,7 @@ func wuggler(dawg *gaddag.SimpleDawg, board []rune, round int) {
 		findWords(dawg, idx, newBoard, []rune{board[idx]},
 			boardDim, multiplier, round)
 	}
-	fmt.Println(answerSet)
-	fmt.Println(len(answerSet), "answers")
+	printAnswers()
 }
 
 // Convert the string into a board shape depending on the round
